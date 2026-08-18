@@ -55,7 +55,7 @@ def getCharactersOfPart(url: str) -> list[Character]:
 def getCharacter(subpath: str) -> Character:
     responseCharacter = requests.get(BASE_URL + subpath)
     if responseCharacter.status_code != 200:
-        print(f"Erreur lors de la requête de personnage : {response.status_code}")
+        print(f"Error during the request of the specific character at {subpath} : {response.status_code}")
     
     soup = BeautifulSoup(responseCharacter.text, "html.parser")
 
@@ -75,15 +75,19 @@ def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
         txt = chapter["title"]
         # search chapters (only! not anime or ova) appearing and add to list
         try:
-            number = re.search("^Chapter\s+(\d+)", txt).group(1)
-            number = getChapterFormatted(number)
-            chapters.append(number)
+            regex = re.search('^(?:(SO|SBR|JJL|TJL)\s+)?Chapter\s+(\d+)$', txt)
+            part = None
+            if regex.group(1):
+                part = regex.group(1)
+            chapter = regex.group(2)
+            chapter = getChapterFormatted(part, chapter)
+            chapters.append(chapter)
         except:
             pass
     
     return chapters
 
-def getChapterFormatted(chapter: str):
+def getChapterFormatted(part:str|None, chapter: str):
     """
     Format chapter from part 1-5 according to this format :
     "X-YYY" where X is the part number and YYY the chapter number.
@@ -94,6 +98,16 @@ def getChapterFormatted(chapter: str):
     for example in part 6 it's "Stone Ocean Chapter 4", which could be confused with Part 1 Chapter 4 if
     we took the number literally.
     """
+    PART_TRANSLATOR = {
+        "SO":6,
+        "SBR":7,
+        "JJL":8,
+        "TJL":9
+    }
+
+    if part != None:
+        return f"{PART_TRANSLATOR[part]}-{chapter}"
+
     FIRST_FIVE_PARTS_END_CHAPTERS = [44, 113, 265, 439, 594]
 
     for part in range(len(FIRST_FIVE_PARTS_END_CHAPTERS)):
