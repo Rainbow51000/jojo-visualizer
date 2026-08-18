@@ -59,7 +59,11 @@ def getCharacter(subpath: str) -> Character:
     
     soup = BeautifulSoup(responseCharacter.text, "html.parser")
 
-    name = getCharacterName(soup)
+    try:
+        name = getCharacterName(soup)
+    except:
+        name = subpath.translate(str.maketrans("", "", "/_"))
+    
     chapters = getCharacterChapters(soup)
     
     return Character(name, chapters)
@@ -69,11 +73,14 @@ def getCharacterName(soup: BeautifulSoup) -> str:
 
 def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
     chapters = []
-    chaptersRaw = soup.find("div", class_="appearanceBox3 textarea").find_all("a")
+    
+    try:
+        chaptersRaw = soup.find("div", class_="appearanceBox3 textarea").find_all("a")
+    except:
+        return []
 
     for chapter in chaptersRaw:
         txt = chapter["title"]
-        # search chapters (only! not anime or ova) appearing and add to list
         try:
             regex = re.search('^(?:(SO|SBR|JJL|TJL)\s+)?Chapter\s+(\d+)$', txt)
             part = None
