@@ -1,35 +1,53 @@
 import requests, time, re
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from pathlib import Path
 from models import Character
 from serialization import dataclasses_to_csv
 
 BASE_URL = "https://jojowiki.com"
-URL_P1 = "https://jojowiki.com/Category:Part_1_Characters"
 DATA_PATH = Path(__file__).parent / '..' / 'data'
 DATA_FILENAME = 'characters.csv'
+URL_PARTS = [
+    "https://jojowiki.com/Category:Part_1_Characters",
+    "https://jojowiki.com/Category:Part_2_Characters",
+    "https://jojowiki.com/Category:Part_3_Characters",
+    "https://jojowiki.com/Category:Part_4_Characters",
+    "https://jojowiki.com/Category:Part_5_Characters",
+    "https://jojowiki.com/Category:Part_6_Characters",
+    "https://jojowiki.com/Category:Part_7_Characters",
+    "https://jojowiki.com/Category:Part_8_Characters",
+    "https://jojowiki.com/Category:Part_9_Characters"
+]
 
-def getCharacters() -> list[Character]:
+def getCharacters(url_parts: list[str]) -> list[Character]:
     characters: list[Character] = []
-    response = requests.get(URL_P1)
+
+    for url in url_parts:
+        print(f"Starting the scan of part {url[35]} characters.")
+        chars = getCharactersOfPart(url)
+        print(f"Scan of part {url[35]} completed.")
+        characters += chars
+    
+    return characters
+
+def getCharactersOfPart(url: str) -> list[Character]:
+    characters: list[Character] = []
+    response = requests.get(url)
 
     if response.status_code != 200:
-        print(f"Erreur lors de la requête initiale : {response.status_code}")
+        print(f"Error during initial request : {response.status_code}")
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # characters table
-    soup = soup.find("div", class_="cbox")
     # list of characters
-    soup = soup.find_all("div", class_="charbox diamond resizeImg")
+    soup = soup.find("div", class_="cbox").find_all("div", class_="charbox diamond resizeImg")
 
-    # every links of characters
     for character in soup:
         # request for each characters, fetching their entity
         subpath = character.find("a")["href"]
-        char = getCharacter(subpath)
-        characters.append(char)
-
+        characterClass = getCharacter(subpath)
+        characters.append(characterClass)
+        
         time.sleep(0.5)
 
     return characters
@@ -40,23 +58,54 @@ def getCharacter(subpath: str) -> Character:
         print(f"Erreur lors de la requête de personnage : {response.status_code}")
     
     soup = BeautifulSoup(responseCharacter.text, "html.parser")
+
+    name = getCharacterName(soup)
+    chapters = getCharacterChapters(soup)
     
-    # extracting data
-    name = soup.find("h2", class_="pi-item pi-item-spacing pi-title").text
+    return Character(name, chapters)
+
+def getCharacterName(soup: BeautifulSoup) -> str:
+    return soup.find("h2", class_="pi-item pi-item-spacing pi-title").text
+
+def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
     chapters = []
-    chaptersRaw = soup.find("div", class_="appearanceBox3 textarea")
-    chaptersRaw = chaptersRaw.find_all("a")
+    chaptersRaw = soup.find("div", class_="appearanceBox3 textarea").find_all("a")
+
     for chapter in chaptersRaw:
         txt = chapter["title"]
         # search chapters (only! not anime or ova) appearing and add to list
         try:
             number = re.search("^Chapter\s+(\d+)", txt).group(1)
+            number = getChapterFormatted(number)
             chapters.append(number)
         except:
             pass
     
-    return Character(name, chapters)
+    return chapters
+
+def getChapterFormatted(chapter: str):
+    """
+    Format chapter from part 1-5 according to this format :
+    "X-YYY" where X is the part number and YYY the chapter number.
+    For example, chapter "374" is part 4, chapter 109.
+    According to the format, it translates to "4-109".
+
+    This is used because Jojo's Wiki has a different format chapters number from part 1-5 compared to 6-9,
+    for example in part 6 it's "Stone Ocean Chapter 4", which could be confused with Part 1 Chapter 4 if
+    we took the number literally.
+    """
+    FIRST_FIVE_PARTS_END_CHAPTERS = [44, 113, 265, 439, 594]
+
+    for part in range(len(FIRST_FIVE_PARTS_END_CHAPTERS)):
+        if int(chapter) <= FIRST_FIVE_PARTS_END_CHAPTERS[part]:
+            if part == 0:
+                return f"{part + 1}-{chapter}"
+            else:
+                return f"{part + 1}-{int(chapter) - FIRST_FIVE_PARTS_END_CHAPTERS[part-1]}"
+    
+    print(f"Error during chapter format, it was not recognised, which will be translated to number -1. Number of the chapter that should be formatted : {chapter}")
+    return -1
 
 if __name__ == "__main__":
-    characters = getCharacters()
+    characters = getCharacters(URL_PARTS)
     dataclasses_to_csv(characters, DATA_PATH, DATA_FILENAME)
