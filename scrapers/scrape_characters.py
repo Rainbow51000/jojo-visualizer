@@ -1,4 +1,4 @@
-import requests, time, re
+import requests, time, re, urllib.parse
 from bs4 import BeautifulSoup, Tag
 from pathlib import Path
 from models import Character
@@ -20,37 +20,41 @@ URL_PARTS = [
 ]
 
 def getCharacters(url_parts: list[str]) -> list[Character]:
+    subpaths: list[str] = []
+    
+    for url in url_parts:
+        print(f"Getting part {url[35]} characters...")
+        subpaths += getCharactersLinks(url)
+        print(f"Part {url[35]} completed.")
+        time.sleep(0.5)
+    
+    # Dio_brando and DIO link to the same page, it's useless to keep 2 of them as they will duplicate.
+    subpaths.remove("/DIO")
+    subpaths = list(set(subpaths))
     characters: list[Character] = []
 
-    for url in url_parts:
-        print(f"Starting the scan of part {url[35]} characters.")
-        chars = getCharactersOfPart(url)
-        print(f"Scan of part {url[35]} completed.")
-        characters += chars
+    for subpath in subpaths:
+        print(f"Scraping info on {subpath}")
+        characters.append(getCharacter(subpath))
+        time.sleep(0.5)
     
     return characters
 
-def getCharactersOfPart(url: str) -> list[Character]:
-    characters: list[Character] = []
+def getCharactersLinks(url: str) -> list[str]:
+    subpaths: list[str] = []
     response = requests.get(url)
 
     if response.status_code != 200:
         print(f"Error during initial request : {response.status_code}")
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    charactersLinkSoup = BeautifulSoup(response.text, "html.parser").find("div", class_="cbox").find_all("div", class_="charbox diamond resizeImg")
 
-    # list of characters
-    soup = soup.find("div", class_="cbox").find_all("div", class_="charbox diamond resizeImg")
-
-    for character in soup:
-        # request for each characters, fetching their entity
+    for character in charactersLinkSoup:
         subpath = character.find("a")["href"]
-        characterClass = getCharacter(subpath)
-        characters.append(characterClass)
-        
+        subpaths.append(subpath)
         time.sleep(0.5)
 
-    return characters
+    return subpaths
 
 def getCharacter(subpath: str) -> Character:
     responseCharacter = requests.get(BASE_URL + subpath)
@@ -59,21 +63,17 @@ def getCharacter(subpath: str) -> Character:
     
     soup = BeautifulSoup(responseCharacter.text, "html.parser")
 
-    try:
-        name = getCharacterName(soup)
-    except:
-        name = subpath.translate(str.maketrans("", "", "/_"))
-    
+    name = getCharacterName(subpath)
     chapters = getCharacterChapters(soup)
     
     return Character(name, chapters)
 
-def getCharacterName(soup: BeautifulSoup) -> str:
-    return soup.find("h2", class_="pi-item pi-item-spacing pi-title").text
+def getCharacterName(subpath: str) -> str:
+    return urllib.parse.unquote(subpath.replace("/", "").replace("_", " ").replace("%27", "'").replace("%22", "\""))
 
 def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
     chapters = []
-    
+
     try:
         chaptersRaw = soup.find("div", class_="appearanceBox3 textarea").find_all("a")
     except:
