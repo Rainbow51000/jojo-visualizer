@@ -55,7 +55,6 @@ def getCharactersLinks(url: str) -> list[str]:
     for character in charactersLinkSoup:
         subpath = character.find("a")["href"]
         subpaths.append(subpath)
-        time.sleep(0.5)
 
     return subpaths
 
@@ -73,7 +72,7 @@ def getCharacter(subpath: str) -> [Character, list[Relation]]:
     return Character(name, chapters), relations
 
 def getCharacterName(subpath: str) -> str:
-    return urllib.parse.unquote(subpath.replace("/", "").replace("_", " ").replace("%27", "'").replace("%22", "\""))
+    return urllib.parse.unquote(subpath.replace("/", "").replace("_", " "))
 
 def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
     chapters = []
@@ -146,7 +145,7 @@ def getCharacterRelations(soup: BeautifulSoup, src_name:str) -> list[Relation]:
             if tag.name == "ul":
                 for li in tag.find_all("li"):
                     character_linked = li.find("a")["title"]
-                    
+
                     # edge case : name DIO converted into Dio Brando
                     if src_name == "DIO":
                         src_name = "Dio Brando"
