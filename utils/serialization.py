@@ -1,13 +1,13 @@
 import csv
 from dataclasses import dataclass, fields, asdict
 
-def dataclasses_to_csv(items: list, path: str, filename: str) -> None:
+def dataclasses_to_csv(items: list, path: Path, filename: str) -> None:
     """
     Writes the dataclasses items in a CSV at the path provided.
     If the path folder does not exist, it is created.
     Args:
         items (list): Dataclasses to write in the CSV
-        path (str): Path to the CSV
+        path (Path): Path to the CSV
         filename (str): Filename of the CSV
     """
     path.mkdir(parents=True, exist_ok=True)
