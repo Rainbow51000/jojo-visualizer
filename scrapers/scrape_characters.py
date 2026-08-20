@@ -2,7 +2,8 @@ import requests, time, re, urllib.parse
 from bs4 import BeautifulSoup, Tag
 from pathlib import Path
 from models import Character, Relation
-from serialization import dataclasses_to_csv
+from utils.serialization import dataclasses_to_csv
+from utils.character import getCharacterName
 
 BASE_URL = "https://jojowiki.com"
 DATA_PATH = Path(__file__).parent / '..' / 'data'
@@ -70,9 +71,6 @@ def getCharacter(subpath: str) -> [Character, list[Relation]]:
     relations = getCharacterRelations(soup, name)
     
     return Character(name, chapters), relations
-
-def getCharacterName(subpath: str) -> str:
-    return urllib.parse.unquote(subpath.replace("/", "").replace("_", " "))
 
 def getCharacterChapters(soup: BeautifulSoup) -> list[str]:
     chapters = []
